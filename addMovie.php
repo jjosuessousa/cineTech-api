@@ -27,10 +27,11 @@ try {
         die(json_encode(["error" => "Imagem obrigatória ou erro no upload."]));
     }
 
-    // Configuração do upload
-    $uploadDir = "uploads/";
+    // Configuração do upload (baseado na categoria)
+    $category = strtolower(trim($_POST['category'])); // Obtém e formata a categoria
+    $uploadDir = "uploads/" . $category . "/"; // Define a subpasta com base na categoria
     if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
+        mkdir($uploadDir, 0777, true); // Cria a subpasta da categoria se não existir
     }
 
     $imageFile = $_FILES['image'];

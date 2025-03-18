@@ -1,51 +1,39 @@
 <?php
-header("Access-Control-Allow-Origin: http://127.0.0.1:5500");
-header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Content-Type: application/json"); // Define o formato como JSON
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json");
 
-require "db.php"; // Inclui a classe Database
+require "db.php";
 
 try {
-    // Verifica requisições OPTIONS para evitar erros CORS
-    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-        http_response_code(200);
-        exit;
-    }
-
-    // Obtém a conexão com o banco de dados
     $pdo = Database::getInstance()->getConnection();
+    $categoria = isset($_GET['categoria']) ? trim($_GET['categoria']) : null;
 
-    // Verifica se há um termo de busca
-    $search = isset($_GET['search']) ? trim($_GET['search']) : "";
-
-    // Construir a consulta SQL
-    $sql = "SELECT * FROM filmes";
-    if ($search) {
-        $sql .= " WHERE nome LIKE :search OR categoria LIKE :search";
-    }
-
-    // Preparar e executar a consulta
-    $stmt = $pdo->prepare($sql);
-    if ($search) {
-        $stmt->bindValue(":search", "%$search%", PDO::PARAM_STR);
-    }
-    $stmt->execute();
-
-    // Montar a resposta com o caminho completo das imagens
-    $movies = array_map(function ($movie) {
-        $movie['imagem'] = "http://localhost/cineTech-api/" . $movie['imagem'];
-        return $movie;
-    }, $stmt->fetchAll());
-
-    // Retornar resultado como JSON
-    if (empty($movies)) {
-        echo json_encode(["message" => "Nenhum filme encontrado."]);
+    if ($categoria) {
+        // Adiciona 'ORDER BY id DESC' para garantir que os filmes mais recentes aparecem primeiro
+        $query = "SELECT * FROM filmes WHERE categoria = :categoria ORDER BY id DESC";
+        $stmt = $pdo->prepare($query);
+        $stmt->bindValue(':categoria', $categoria, PDO::PARAM_STR);
     } else {
-        echo json_encode($movies);
+        // Adiciona 'ORDER BY id DESC' para listar os filmes mais recentes primeiro na busca geral
+        $query = "SELECT * FROM filmes ORDER BY id DESC";
+        $stmt = $pdo->prepare($query);
+    }
+
+    $stmt->execute();
+    $filmes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Ajuste o caminho das imagens para URLs completas
+    $filmes = array_map(function ($filme) {
+        $filme['imagem'] = "http://localhost/cineTech-api/" . $filme['imagem']; // Ajuste o caminho
+        return $filme;
+    }, $filmes);
+
+    if (empty($filmes)) {
+        echo json_encode(["message" => "Nenhum filme encontrado para a categoria especificada."]);
+    } else {
+        echo json_encode($filmes);
     }
 } catch (Exception $e) {
-    // Capturar e retornar erros como JSON
+    http_response_code(500);
     echo json_encode(["error" => "Erro ao buscar filmes: " . $e->getMessage()]);
-    http_response_code(500); // Código de erro apropriado
 }
